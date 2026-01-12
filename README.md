@@ -35,7 +35,7 @@ A production-ready, portable Minecraft Bedrock Edition server using Docker, with
 ### 1️⃣ Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/minecraft-bedrock-server.git
+git clone https://github.com/CodeWithBotinaOficial/minecraft-bedrock-server.git
 cd minecraft-bedrock-server
 ```
 
@@ -413,7 +413,7 @@ MIT License - See LICENSE file for details
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/minecraft-bedrock-server/issues)
+- **Issues**: [GitHub Issues](https://github.com/CodeWithBotinaOficial/minecraft-bedrock-server/issues)
 - **Discord**: [Your Discord Server]
 - **Documentation**: [Minecraft Bedrock Wiki](https://minecraft.wiki/)
 
