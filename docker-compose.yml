@@ -1,0 +1,215 @@
+# ============================================================================
+# MINECRAFT BEDROCK SERVER - DOCKER COMPOSE
+# ============================================================================
+# Professional configuration using .env file for all customization
+# Users should ONLY modify the .env file, not this docker-compose.yml
+# ============================================================================
+
+services:
+  # ============================================================================
+  # MINECRAFT BEDROCK SERVER
+  # ============================================================================
+  minecraft-bedrock:
+    image: itzg/minecraft-bedrock-server:${DOCKER_IMAGE_TAG:-latest}
+    container_name: ${CONTAINER_NAME:-minecraft-bedrock-server}
+    hostname: ${HOSTNAME:-bedrock-server}
+    restart: ${RESTART_POLICY:-unless-stopped}
+    command: ["sh", "-c", "chown -R 1000:1000 /data && /usr/local/bin/entrypoint.sh"]
+    
+    # Environment Variables - All values read from .env file
+    environment:
+      # ===== REQUIRED SETTINGS =====
+      EULA: "TRUE"
+      VERSION: ${MINECRAFT_VERSION:-1.21.131.1}
+      
+      # ===== SERVER IDENTITY =====
+      SERVER_NAME: ${SERVER_NAME:-My Bedrock Server}
+      SERVER_PORT: ${SERVER_PORT:-19132}
+      SERVER_PORTV6: ${SERVER_PORTV6:-19133}
+      
+      # ===== WORLD CONFIGURATION =====
+      LEVEL_NAME: ${LEVEL_NAME:-Bedrock level}
+      LEVEL_SEED: ${LEVEL_SEED:-}
+      LEVEL_TYPE: ${LEVEL_TYPE:-DEFAULT}
+      GAMEMODE: ${GAMEMODE:-survival}
+      DIFFICULTY: ${DIFFICULTY:-normal}
+      
+      # ===== PLAYER SETTINGS =====
+      MAX_PLAYERS: ${MAX_PLAYERS:-10}
+      ALLOW_CHEATS: ${ALLOW_CHEATS:-false}
+      VIEW_DISTANCE: ${VIEW_DISTANCE:-12}
+      TICK_DISTANCE: ${TICK_DISTANCE:-4}
+      PLAYER_IDLE_TIMEOUT: ${PLAYER_IDLE_TIMEOUT:-30}
+      
+      # ===== AUTHENTICATION & PERMISSIONS =====
+      ONLINE_MODE: ${ONLINE_MODE:-true}
+      ALLOW_LIST: ${ALLOW_LIST:-false}
+      DEFAULT_PLAYER_PERMISSION_LEVEL: ${DEFAULT_PLAYER_PERMISSION_LEVEL:-member}
+      TEXTUREPACK_REQUIRED: ${TEXTUREPACK_REQUIRED:-false}
+      
+      # ===== PERFORMANCE SETTINGS =====
+      SERVER_AUTHORITATIVE_MOVEMENT: ${SERVER_AUTHORITATIVE_MOVEMENT:-server-auth}
+      SERVER_AUTHORITATIVE_BLOCK_BREAKING: ${SERVER_AUTHORITATIVE_BLOCK_BREAKING:-false}
+      MAX_THREADS: ${MAX_THREADS:-8}
+      
+      # ===== LOGGING & BACKUP =====
+      ENABLE_ROLLING_LOGS: ${ENABLE_ROLLING_LOGS:-true}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      
+      # ===== CONTENT & BEHAVIOR PACKS =====
+      CONTENT_LOG_FILE_ENABLED: ${CONTENT_LOG_FILE_ENABLED:-false}
+      
+      # ===== ADVANCED SETTINGS =====
+      COMPRESSION_THRESHOLD: ${COMPRESSION_THRESHOLD:-1}
+      CORRECT_PLAYER_MOVEMENT: ${CORRECT_PLAYER_MOVEMENT:-false}
+      
+      # ===== TIMEZONE =====
+      TZ: ${TIMEZONE:-America/Bogota}
+    
+    # ===== PORT MAPPING =====
+    # CRITICAL: Bedrock uses UDP, not TCP
+    ports:
+      - "${HOST_PORT:-19132}:${SERVER_PORT:-19132}/udp"
+      - "${HOST_PORT_V6:-19133}:${SERVER_PORTV6:-19133}/udp"
+    
+    # ===== VOLUME MOUNTS =====
+    # Persistent data storage
+    volumes:
+      # Server data (worlds, configs, logs, permissions)
+      - type: bind
+        source: ${DATA_PATH:-./data}
+        target: /data
+      
+      # Custom world import directory
+      - type: bind
+        source: ${WORLDS_PATH:-./worlds}
+        target: /data/worlds
+      
+      # Backups directory
+      - type: bind
+        source: ${BACKUPS_PATH:-./backups}
+        target: /backups
+      
+      # Resource packs (optional)
+      - type: bind
+        source: ${RESOURCE_PACKS_PATH:-./resource_packs}
+        target: /data/resource_packs
+      
+      # Behavior packs (optional)
+      - type: bind
+        source: ${BEHAVIOR_PACKS_PATH:-./behavior_packs}
+        target: /data/behavior_packs
+    
+    # ===== RESOURCE LIMITS =====
+    # Prevent server from consuming all host resources
+    deploy:
+      resources:
+        limits:
+          cpus: ${CPU_LIMIT:-4.0}
+          memory: ${MEMORY_LIMIT:-4G}
+        reservations:
+          cpus: ${CPU_RESERVATION:-2.0}
+          memory: ${MEMORY_RESERVATION:-2G}
+    
+    # ===== LOGGING CONFIGURATION =====
+    logging:
+      driver: json-file
+      options:
+        max-size: ${LOG_MAX_SIZE:-10m}
+        max-file: ${LOG_MAX_FILES:-3}
+        labels: "service=minecraft-bedrock"
+    
+    # ===== NETWORK =====
+    networks:
+      - minecraft-network
+    
+    # ===== LABELS =====
+    # Metadata for organization and tooling
+    labels:
+      com.minecraft.server.type: "bedrock"
+      com.minecraft.server.version: "${MINECRAFT_VERSION:-1.21.131.1}"
+      com.minecraft.project.name: "minecraft-bedrock-server"
+
+  # ============================================================================
+  # PLAYIT.GG TUNNEL - Free Internet Exposure
+  # ============================================================================
+  playit:
+    image: ${PLAYIT_IMAGE:-playitcloud/playit:latest}
+    container_name: ${PLAYIT_CONTAINER_NAME:-playit-tunnel}
+    hostname: ${PLAYIT_HOSTNAME:-playit-tunnel}
+    restart: ${RESTART_POLICY:-unless-stopped}
+    
+    # ===== NETWORK MODE =====
+    # Use host network to access minecraft container
+    # CRITICAL: Playit.gg requires host network to work properly
+    network_mode: host
+    
+    # ===== VOLUME MOUNTS =====
+    volumes:
+      # Persistent Playit.gg configuration
+      # The official image stores config at /etc/playit/
+      - type: bind
+        source: ${PLAYIT_CONFIG_PATH:-./playit}
+        target: /etc/playit
+    
+    # ===== ENVIRONMENT VARIABLES =====
+    environment:
+      # Secret key (leave empty for first run, claim via web interface)
+      # After claiming, you can set this to persist configuration
+      SECRET_KEY: ${PLAYIT_SECRET:-}
+      
+      # Timezone
+      TZ: ${TIMEZONE:-America/Bogota}
+    
+    # ===== DEPENDENCIES =====
+    # Wait for Minecraft server to be healthy before starting
+    depends_on:
+      minecraft-bedrock:
+        condition: service_started
+    
+    # ===== LOGGING =====
+    logging:
+      driver: json-file
+      options:
+        max-size: ${PLAYIT_LOG_MAX_SIZE:-5m}
+        max-file: ${PLAYIT_LOG_MAX_FILES:-2}
+        labels: "service=playit-tunnel"
+    
+    # ===== LABELS =====
+    labels:
+      com.minecraft.tunnel.provider: "playit.gg"
+      com.minecraft.tunnel.type: "free"
+
+# ============================================================================
+# NAMED VOLUMES
+# ============================================================================
+# Optional: Use named volumes instead of bind mounts for better Docker management
+# Uncomment and modify services above to use these volumes
+volumes:
+  minecraft-data:
+    name: ${VOLUME_DATA_NAME:-minecraft-bedrock-data}
+    driver: local
+  
+  minecraft-backups:
+    name: ${VOLUME_BACKUPS_NAME:-minecraft-bedrock-backups}
+    driver: local
+  
+  playit-config:
+    name: ${VOLUME_PLAYIT_NAME:-minecraft-playit-config}
+    driver: local
+
+# ============================================================================
+# NETWORKS
+# ============================================================================
+# Custom bridge network for service isolation and communication
+networks:
+  minecraft-network:
+    name: ${NETWORK_NAME:-minecraft-bedrock-net}
+    driver: ${NETWORK_DRIVER:-bridge}
+    ipam:
+      driver: default
+      config:
+        - subnet: ${NETWORK_SUBNET:-172.20.0.0/16}
+          gateway: ${NETWORK_GATEWAY:-172.20.0.1}
+    labels:
+      com.minecraft.network.type: "isolated"
